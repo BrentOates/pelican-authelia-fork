@@ -47,6 +47,7 @@ use Laravel\Sanctum\Sanctum;
 use Livewire\Component;
 use Livewire\Livewire;
 use Spatie\Health\Facades\Health;
+use App\Extensions\OAuth\Providers\AutheliaProvider;
 
 use function Livewire\on;
 use function Livewire\store;
@@ -116,6 +117,7 @@ class AppServiceProvider extends ServiceProvider
         CommonProvider::register($app, 'slack', null, 'tabler-brand-slack', '#6ecadc');
 
         // Additional OAuth providers from socialiteproviders.com
+        AutheliaProvider::register($app);
         AuthentikProvider::register($app);
         DiscordProvider::register($app);
         SteamProvider::register($app);
