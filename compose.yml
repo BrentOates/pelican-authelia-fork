@@ -27,7 +27,7 @@ x-common:
 
 services:
   panel:
-    image: ghcr.io/pelican-dev/panel:latest
+    image: ghcr.io/brentoates/pelican-authelia-fork:latest
     build: .
     restart: always
     networks:
