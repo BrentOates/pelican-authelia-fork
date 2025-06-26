@@ -20,11 +20,13 @@ class AuthenticationListener
             $activity = $activity->subject($event->user);
         }
 
+        /*
         if ($event instanceof Failed) {
             foreach ($event->credentials as $key => $value) {
                 $activity = $activity->property($key, $value);
             }
         }
+        */
 
         $activity->event($event instanceof Failed ? 'auth:fail' : 'auth:success')->log();
     }
