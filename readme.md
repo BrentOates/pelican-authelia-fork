@@ -5,6 +5,7 @@
 > - Implements Authelia as an OIDC Provider from Closed PR (https://github.com/pelican-dev/panel/pull/1084)
 > - Disables logging of user passwords to activity feed on bad login attempt ([#5d3040f](https://github.com/BrentOates/pelican-authelia-fork/commit/5d3040f4cd7ce7edaa91f7616577c6af26d321fe))
 > - Provides Sqlite executable in the Docker image for ease of access to the database when not using MySQL/PGSQL ([#9af0f01](https://github.com/BrentOates/pelican-authelia-fork/commit/9af0f0157ee15487e4a68dde43488f2eff6fec84))
+> - Dev Container setup for use in GitHub Codespaces
 
 # Pelican Panel
 
