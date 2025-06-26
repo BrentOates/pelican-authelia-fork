@@ -64,7 +64,7 @@ WORKDIR /var/www/html
 
 # Install additional required libraries
 RUN apk update && apk add --no-cache \
-    caddy ca-certificates supervisor supercronic sqlite3
+    caddy ca-certificates supervisor supercronic sqlite
 
 COPY --chown=root:www-data --chmod=640 --from=composerbuild /build .
 COPY --chown=root:www-data --chmod=640 --from=yarnbuild /build/public ./public
