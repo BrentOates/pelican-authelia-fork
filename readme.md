@@ -1,5 +1,8 @@
 <img width="20%" src="https://raw.githubusercontent.com/pelican-dev/panel/main/public/pelican.svg" alt="logo">
 
+> [!WARNING]
+> I have only configured docker builds due to costs on building the main project with Actions, so if needed as a manual install you will need to build it.
+
 > [!NOTE]
 > This fork will mostly just follow upstream with some minor tweaks:
 > - Implements Authelia as an OIDC Provider from Closed PR (https://github.com/pelican-dev/panel/pull/1084)
