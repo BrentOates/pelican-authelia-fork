@@ -9,7 +9,7 @@ on:
 jobs:
   mysql:
     name: MySQL
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -82,7 +82,7 @@ jobs:
 
   mariadb:
     name: MariaDB
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -155,7 +155,7 @@ jobs:
 
   sqlite:
     name: SQLite
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -216,7 +216,7 @@ jobs:
 
   postgresql:
     name: PostgreSQL
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:

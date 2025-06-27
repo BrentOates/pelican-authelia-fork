@@ -23,9 +23,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: self-hosted
+          - os: ubuntu-24.04
             arch: amd64
             platform: linux/amd64
+          - os: ubuntu-24.04-arm
+            arch: arm64
+            platform: linux/arm64
     steps:
       - name: Code checkout
         uses: actions/checkout@v4
@@ -58,7 +61,7 @@ jobs:
 
   build-and-push:
     name: Build and Push ubuntu-24.04
-    runs-on: self-hosted
+    runs-on: ubuntu-24.04
     needs: build-php-base
     permissions:
       contents: read

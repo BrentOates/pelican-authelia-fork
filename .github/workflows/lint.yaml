@@ -8,7 +8,7 @@ on:
 jobs:
   pint:
     name: Pint
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: Code Checkout
         uses: actions/checkout@v4
@@ -31,7 +31,7 @@ jobs:
         run: vendor/bin/pint --test
   phpstan:
     name: PHPStan
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
