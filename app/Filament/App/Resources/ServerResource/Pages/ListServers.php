@@ -15,6 +15,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Components\Tab;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Support\Enums\Alignment;
+use Filament\Support\Enums\IconSize;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Actions\ActionGroup;
 use Filament\Tables\Columns\Column;
@@ -74,7 +75,8 @@ class ListServers extends ListRecords
                 ->label('')
                 ->badge()
                 ->visibleFrom('md')
-                ->copyable(request()->isSecure()),
+                ->copyable(request()->isSecure())
+                ->state(fn (Server $server) => $server->allocation->address ?? 'None'),
             TextColumn::make('cpuUsage')
                 ->label('Resources')
                 ->icon('tabler-cpu')
@@ -108,7 +110,7 @@ class ListServers extends ListRecords
             ->poll('15s')
             ->columns($usingGrid ? $this->gridColumns() : $this->tableColumns())
             ->recordUrl(!$usingGrid ? (fn (Server $server) => Console::getUrl(panel: 'server', tenant: $server)) : null)
-            ->actions(!$usingGrid ? ActionGroup::make(static::getPowerActions()) : [])
+            ->actions(!$usingGrid ? ActionGroup::make(static::getPowerActions(view: 'table')) : [])
             ->actionsAlignment(Alignment::Center->value)
             ->contentGrid($usingGrid ? ['default' => 1, 'md' => 2] : null)
             ->emptyStateIcon('tabler-brand-docker')
@@ -218,10 +220,10 @@ class ListServers extends ListRecords
         }
     }
 
-    /** @return Action[] */
-    public static function getPowerActions(): array
+    /** @return Action[]|ActionGroup[] */
+    public static function getPowerActions(string $view): array
     {
-        return [
+        $actions = [
             Action::make('start')
                 ->color('primary')
                 ->icon('tabler-player-play-filled')
@@ -248,5 +250,17 @@ class ListServers extends ListRecords
                 ->visible(fn (Server $server) => !$server->isInConflictState() & $server->retrieveStatus()->isKillable())
                 ->dispatch('powerAction', fn (Server $server) => ['server' => $server, 'action' => 'kill']),
         ];
+
+        if ($view === 'table') {
+            return $actions;
+        } else {
+            return [
+                ActionGroup::make($actions)
+                    ->icon(fn (Server $server) => $server->condition->getIcon())
+                    ->color(fn (Server $server) => $server->condition->getColor())
+                    ->tooltip(fn (Server $server) => $server->condition->getLabel())
+                    ->iconSize(IconSize::Large),
+            ];
+        }
     }
 }
