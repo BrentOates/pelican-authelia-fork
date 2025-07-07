@@ -4,6 +4,7 @@ namespace App\Providers\Extensions;
 
 use App\Extensions\OAuth\OAuthService;
 use App\Extensions\OAuth\Schemas\AuthentikSchema;
+use App\Extensions\OAuth\Schemas\AutheliaSchema;
 use App\Extensions\OAuth\Schemas\CommonSchema;
 use App\Extensions\OAuth\Schemas\DiscordSchema;
 use App\Extensions\OAuth\Schemas\GithubSchema;
@@ -30,6 +31,7 @@ class OAuthServiceProvider extends ServiceProvider
 
             // Additional OAuth providers from socialiteproviders.com
             $service->register(new AuthentikSchema());
+            $service->register(new AutheliaSchema());
             $service->register(new DiscordSchema());
             $service->register(new SteamSchema());
 
