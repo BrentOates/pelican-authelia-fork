@@ -1,25 +1,20 @@
 <?php
 
-namespace App\Extensions\OAuth\Providers;
+namespace App\Extensions\OAuth\Schemas;
 
 use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\TextInput;
 use Illuminate\Foundation\Application;
 use SocialiteProviders\Authelia\Provider;
 
-final class AutheliaProvider extends OAuthProvider
+final class AutheliaSchema extends OAuthSchema
 {
-    public function __construct(protected Application $app)
-    {
-        parent::__construct($app);
-    }
-
     public function getId(): string
     {
         return 'authelia';
     }
 
-    public function getProviderClass(): string
+    public function getSocialiteProvider(): string
     {
         return Provider::class;
     }
@@ -65,10 +60,5 @@ final class AutheliaProvider extends OAuthProvider
     public function getHexColor(): string
     {
         return env('OAUTH_AUTHELIA_DISPLAY_COLOR', '#b2c6fe');
-    }
-
-    public static function register(Application $app): self
-    {
-        return new self($app);
     }
 }
