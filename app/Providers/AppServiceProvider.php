@@ -33,7 +33,6 @@ use Laravel\Sanctum\Sanctum;
 use Livewire\Component;
 use Livewire\Livewire;
 use Spatie\Health\Facades\Health;
-use App\Extensions\OAuth\Providers\AutheliaProvider;
 
 use function Livewire\on;
 use function Livewire\store;
