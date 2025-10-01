@@ -11,6 +11,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Support\Facades\Http;
 use Lcobucci\JWT\UnencryptedToken;
+use Throwable;
 
 class TransferServerService
 {
@@ -39,7 +40,7 @@ class TransferServerService
      *
      * @param  int[]  $additional_allocations
      *
-     * @throws \Throwable
+     * @throws Throwable
      */
     public function handle(Server $server, int $node_id, ?int $allocation_id = null, ?array $additional_allocations = []): bool
     {
