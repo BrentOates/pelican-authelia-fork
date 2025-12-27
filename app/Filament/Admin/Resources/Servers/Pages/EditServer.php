@@ -3,11 +3,10 @@
 namespace App\Filament\Admin\Resources\Servers\Pages;
 
 use App\Enums\SuspendAction;
-use App\Filament\Admin\Resources\Servers\RelationManagers\AllocationsRelationManager;
-use App\Filament\Admin\Resources\Servers\RelationManagers\DatabasesRelationManager;
 use App\Filament\Admin\Resources\Servers\ServerResource;
 use App\Filament\Components\Actions\DeleteServerIcon;
 use App\Filament\Components\Actions\PreviewStartupAction;
+use App\Filament\Components\Forms\Fields\MonacoEditor;
 use App\Filament\Components\Forms\Fields\StartupVariable;
 use App\Filament\Components\StateCasts\ServerConditionStateCast;
 use App\Filament\Server\Pages\Console;
@@ -28,7 +27,6 @@ use App\Traits\Filament\CanCustomizeHeaderWidgets;
 use Exception;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
-use Filament\Forms\Components\CodeEditor;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\KeyValue;
@@ -303,7 +301,7 @@ class EditServer extends EditRecord
                                                     ->modalFooterActionsAlignment(Alignment::Right)
                                                     ->modalCancelActionLabel(trans('filament::components/modal.actions.close.label'))
                                                     ->schema([
-                                                        CodeEditor::make('logs')
+                                                        MonacoEditor::make('logs')
                                                             ->hiddenLabel()
                                                             ->formatStateUsing(function (Server $server, DaemonServerRepository $serverRepository) {
                                                                 try {
@@ -1196,13 +1194,5 @@ class EditServer extends EditRecord
         };
 
         Storage::disk('public')->put(Server::ICON_STORAGE_PATH . "/$server->uuid.$normalizedExtension", $data);
-    }
-
-    public function getRelationManagers(): array
-    {
-        return [
-            AllocationsRelationManager::class,
-            DatabasesRelationManager::class,
-        ];
     }
 }
