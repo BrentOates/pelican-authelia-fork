@@ -11,9 +11,10 @@ use Filament\Facades\Filament;
 use Filament\Panel;
 use Illuminate\Console\Application as ConsoleApplication;
 use Illuminate\Console\Command;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Migrations\Migrator;
 use Illuminate\Foundation\Application;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -38,7 +39,7 @@ class PluginService
         /** @var ClassLoader $classLoader */
         $classLoader = File::getRequire(base_path('vendor/autoload.php'));
 
-        $plugins = Plugin::query()->orderBy('load_order')->get();
+        $plugins = Plugin::orderBy('load_order')->get();
         foreach ($plugins as $plugin) {
             try {
                 // Filter out plugins that are not compatible with the current panel version
@@ -51,6 +52,10 @@ class PluginService
                     if ($plugin->status === PluginStatus::Incompatible) {
                         $this->disablePlugin($plugin);
                     }
+                }
+
+                if ($plugin->namespace === 'Error') {
+                    continue;
                 }
 
                 // Always autoload src directory to make sure all class names can be resolved (e.g. in migrations)
@@ -133,7 +138,7 @@ class PluginService
             return;
         }
 
-        $plugins = Plugin::query()->orderBy('load_order')->get();
+        $plugins = Plugin::orderBy('load_order')->get();
         foreach ($plugins as $plugin) {
             try {
                 if (!$plugin->shouldLoad($panel->getId())) {
@@ -167,7 +172,7 @@ class PluginService
     {
         $newPackages ??= [];
 
-        $plugins = Plugin::query()->orderBy('load_order')->get();
+        $plugins = Plugin::orderBy('load_order')->get();
         foreach ($plugins as $plugin) {
             if (!$plugin->composer_packages) {
                 continue;
@@ -218,10 +223,11 @@ class PluginService
     {
         $migrations = plugin_path($plugin->id, 'database', 'migrations');
         if (file_exists($migrations)) {
-            $success = Artisan::call('migrate', ['--realpath' => true, '--path' => $migrations, '--force' => true]) === 0;
-
-            if (!$success) {
-                throw new Exception("Could not run migrations for plugin '{$plugin->id}'");
+            try {
+                $migrator = $this->app->make(Migrator::class);
+                $migrator->run($migrations);
+            } catch (Exception $exception) {
+                throw new Exception("Could not run migrations': " . $exception->getMessage());
             }
         }
     }
@@ -231,10 +237,11 @@ class PluginService
     {
         $migrations = plugin_path($plugin->id, 'database', 'migrations');
         if (file_exists($migrations)) {
-            $success = Artisan::call('migrate:rollback', ['--realpath' => true, '--path' => $migrations, '--force' => true]) === 0;
-
-            if (!$success) {
-                throw new Exception("Could not rollback migrations for plugin '{$plugin->id}'");
+            try {
+                $migrator = $this->app->make(Migrator::class);
+                $migrator->reset($migrations);
+            } catch (Exception $exception) {
+                throw new Exception("Could not rollback migrations': " . $exception->getMessage());
             }
         }
     }
@@ -244,20 +251,22 @@ class PluginService
     {
         $seeder = $plugin->getSeeder();
         if ($seeder) {
-            $success = Artisan::call('db:seed', ['--class' => $seeder, '--force' => true]) === 0;
+            try {
+                $seederObject = $this->app->make($seeder)->setContainer($this->app);
 
-            if (!$success) {
-                throw new Exception("Could not run seeder for plugin '{$plugin->id}'");
+                Model::unguarded(fn () => $seederObject->__invoke());
+            } catch (Exception $exception) {
+                throw new Exception('Could not run seeder: ' . $exception->getMessage());
             }
         }
     }
 
-    public function buildAssets(): bool
+    public function buildAssets(bool $throw = false): bool
     {
         try {
             $result = Process::path(base_path())->timeout(300)->run('yarn install');
             if ($result->failed()) {
-                throw new Exception('Could not install dependencies: ' . $result->errorOutput());
+                throw new Exception('Could not install yarn dependencies: ' . $result->errorOutput());
             }
 
             $result = Process::path(base_path())->timeout(600)->run('yarn build');
@@ -267,7 +276,7 @@ class PluginService
 
             return true;
         } catch (Exception $exception) {
-            if ($this->isDevModeActive()) {
+            if ($throw || $this->isDevModeActive()) {
                 throw ($exception);
             }
 
@@ -280,24 +289,30 @@ class PluginService
     /** @throws Exception */
     public function installPlugin(Plugin $plugin, bool $enable = true): void
     {
-        $this->manageComposerPackages(json_decode($plugin->composer_packages, true, 512));
+        try {
+            $this->manageComposerPackages(json_decode($plugin->composer_packages, true, 512));
 
-        if ($enable) {
-            $this->enablePlugin($plugin);
-        } else {
-            if ($plugin->status === PluginStatus::NotInstalled) {
-                $this->disablePlugin($plugin);
+            $this->buildAssets($plugin->isTheme());
+
+            $this->runPluginMigrations($plugin);
+
+            $this->runPluginSeeder($plugin);
+
+            if ($enable) {
+                $this->enablePlugin($plugin);
+            } else {
+                if ($plugin->status === PluginStatus::NotInstalled) {
+                    $this->disablePlugin($plugin);
+                }
             }
-        }
 
-        $this->buildAssets();
+            foreach (Filament::getPanels() as $panel) {
+                $panel->clearCachedComponents();
+            }
+        } catch (Exception $exception) {
+            $this->setStatus($plugin, PluginStatus::NotInstalled, $exception->getMessage());
 
-        $this->runPluginMigrations($plugin);
-
-        $this->runPluginSeeder($plugin);
-
-        foreach (Filament::getPanels() as $panel) {
-            $panel->clearCachedComponents();
+            throw $exception;
         }
     }
 
@@ -323,15 +338,20 @@ class PluginService
 
         $this->rollbackPluginMigrations($plugin);
 
+        $this->setStatus($plugin, PluginStatus::NotInstalled);
+
         if ($deleteFiles) {
             $this->deletePlugin($plugin);
-        } else {
-            $this->setStatus($plugin, PluginStatus::NotInstalled);
         }
 
         $this->buildAssets();
 
         $this->manageComposerPackages(oldPackages: $pluginPackages);
+
+        // This throws an error when not called with qualifier
+        foreach (\Filament\Facades\Filament::getPanels() as $panel) {
+            $panel->clearCachedComponents();
+        }
     }
 
     /** @throws Exception */
@@ -414,7 +434,7 @@ class PluginService
     /** @param array<string, mixed> $data */
     private function setMetaData(string|Plugin $plugin, array $data): void
     {
-        $path = plugin_path($plugin instanceof Plugin ? $plugin->id : $plugin, 'plugin.json');
+        $path = plugin_path($plugin->id, 'plugin.json');
 
         if (File::exists($path)) {
             $pluginData = File::json($path, JSON_THROW_ON_ERROR);
@@ -423,7 +443,6 @@ class PluginService
 
             File::put($path, json_encode($pluginData, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
-            $plugin = $plugin instanceof Plugin ? $plugin : Plugin::findOrFail($plugin);
             $plugin->update($metaData);
         }
     }
@@ -444,6 +463,8 @@ class PluginService
     public function updateLoadOrder(array $order): void
     {
         foreach ($order as $i => $plugin) {
+            $plugin = Plugin::firstOrFail(str($plugin)->lower()->toString());
+
             $this->setMetaData($plugin, [
                 'load_order' => $i,
             ]);
@@ -452,7 +473,7 @@ class PluginService
 
     public function hasThemePluginEnabled(): bool
     {
-        $plugins = Plugin::query()->orderBy('load_order')->get();
+        $plugins = Plugin::orderBy('load_order')->get();
         foreach ($plugins as $plugin) {
             if ($plugin->isTheme() && $plugin->status === PluginStatus::Enabled) {
                 return true;
@@ -467,7 +488,7 @@ class PluginService
     {
         $languages = [];
 
-        $plugins = Plugin::query()->orderBy('load_order')->get();
+        $plugins = Plugin::orderBy('load_order')->get();
         foreach ($plugins as $plugin) {
             if ($plugin->status !== PluginStatus::Enabled || !$plugin->isLanguage()) {
                 continue;
@@ -484,7 +505,7 @@ class PluginService
         return config('panel.plugin.dev_mode', false);
     }
 
-    private function handlePluginException(string|Plugin $plugin, Exception $exception): void
+    private function handlePluginException(Plugin $plugin, Exception $exception): void
     {
         if ($this->isDevModeActive()) {
             throw ($exception);

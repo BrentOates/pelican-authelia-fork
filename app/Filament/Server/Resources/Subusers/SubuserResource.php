@@ -3,6 +3,7 @@
 namespace App\Filament\Server\Resources\Subusers;
 
 use App\Enums\SubuserPermission;
+use App\Enums\TablerIcon;
 use App\Facades\Activity;
 use App\Filament\Server\Resources\Subusers\Pages\ListSubusers;
 use App\Models\Server;
@@ -15,6 +16,7 @@ use App\Traits\Filament\CanCustomizePages;
 use App\Traits\Filament\CanCustomizeRelations;
 use App\Traits\Filament\CanModifyTable;
 use App\Traits\Filament\HasLimitBadge;
+use BackedEnum;
 use Exception;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
@@ -33,7 +35,6 @@ use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
-use Filament\Support\Enums\IconSize;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -50,7 +51,7 @@ class SubuserResource extends Resource
 
     protected static ?int $navigationSort = 5;
 
-    protected static string|\BackedEnum|null $navigationIcon = 'tabler-users';
+    protected static string|BackedEnum|null $navigationIcon = TablerIcon::Users;
 
     protected static function getBadgeCount(): int
     {
@@ -122,18 +123,6 @@ class SubuserResource extends Resource
                     ),
             ])
             ->recordActions([
-                DeleteAction::make()
-                    ->label(trans('server/user.delete'))
-                    ->hidden(fn (Subuser $subuser) => user()?->id === $subuser->user->id)
-                    ->successNotificationTitle(null)
-                    ->action(function (Subuser $subuser, SubuserDeletionService $subuserDeletionService) use ($server) {
-                        $subuserDeletionService->handle($subuser, $server);
-
-                        Notification::make()
-                            ->title(trans('server/user.notification_delete'))
-                            ->success()
-                            ->send();
-                    }),
                 EditAction::make()
                     ->label(trans('server/user.edit'))
                     ->hidden(fn (Subuser $subuser) => user()?->id === $subuser->user->id)
@@ -178,7 +167,7 @@ class SubuserResource extends Resource
                                     ])
                                     ->formatStateUsing(fn (Subuser $subuser) => $subuser->user->email),
                                 Actions::make([
-                                    Action::make('assignAll')
+                                    Action::make('exclude_assignAll')
                                         ->label(trans('server/user.assign_all'))
                                         ->action(function (Set $set) use ($permissionsArray) {
                                             $permissions = $permissionsArray;
@@ -213,11 +202,24 @@ class SubuserResource extends Resource
 
                         return $data;
                     }),
+                DeleteAction::make()
+                    ->label(trans('server/user.delete'))
+                    ->hidden(fn (Subuser $subuser) => user()?->id === $subuser->user->id)
+                    ->authorize(fn () => user()?->can(SubuserPermission::UserDelete, $server))
+                    ->successNotificationTitle(null)
+                    ->action(function (Subuser $subuser, SubuserDeletionService $subuserDeletionService) use ($server) {
+                        $subuserDeletionService->handle($subuser, $server);
+
+                        Notification::make()
+                            ->title(trans('server/user.notification_delete'))
+                            ->success()
+                            ->send();
+                    }),
             ])
             ->toolbarActions([
                 CreateAction::make('invite')
-                    ->hiddenLabel()->iconButton()->iconSize(IconSize::ExtraLarge)
-                    ->icon('tabler-user-plus')
+                    ->hiddenLabel()
+                    ->icon(TablerIcon::UserPlus)
                     ->tooltip(trans('server/user.invite_user'))
                     ->createAnother(false)
                     ->authorize(fn () => user()?->can(SubuserPermission::UserCreate, $server))
@@ -242,7 +244,7 @@ class SubuserResource extends Resource
                                     ])
                                     ->required(),
                                 Actions::make([
-                                    Action::make('assignAll')
+                                    Action::make('exclude_assignAll')
                                         ->label(trans('server/user.assign_all'))
                                         ->action(function (Set $set, Get $get) use ($permissionsArray) {
                                             $permissions = $permissionsArray;
@@ -264,7 +266,7 @@ class SubuserResource extends Resource
                             ]),
                     ])
                     ->modalHeading(trans('server/user.invite_user'))
-                    ->modalIcon('tabler-user-plus')
+                    ->modalIcon(TablerIcon::UserPlus)
                     ->modalSubmitActionLabel(trans('server/user.action'))
                     ->successNotificationTitle(null)
                     ->failureNotificationTitle(null)

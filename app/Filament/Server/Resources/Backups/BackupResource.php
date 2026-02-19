@@ -5,6 +5,7 @@ namespace App\Filament\Server\Resources\Backups;
 use App\Enums\BackupStatus;
 use App\Enums\ServerState;
 use App\Enums\SubuserPermission;
+use App\Enums\TablerIcon;
 use App\Facades\Activity;
 use App\Filament\Components\Tables\Columns\BytesColumn;
 use App\Filament\Components\Tables\Columns\DateTimeColumn;
@@ -22,10 +23,10 @@ use App\Traits\Filament\CanCustomizeRelations;
 use App\Traits\Filament\CanModifyForm;
 use App\Traits\Filament\CanModifyTable;
 use App\Traits\Filament\HasLimitBadge;
+use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\CreateAction;
-use Filament\Actions\DeleteAction;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\Textarea;
@@ -58,7 +59,7 @@ class BackupResource extends Resource
 
     protected static ?int $navigationSort = 3;
 
-    protected static string|\BackedEnum|null $navigationIcon = 'tabler-file-zip';
+    protected static string|BackedEnum|null $navigationIcon = TablerIcon::FileZip;
 
     protected static bool $canCreateAnother = false;
 
@@ -75,7 +76,7 @@ class BackupResource extends Resource
         /** @var Server $server */
         $server = Filament::getTenant();
 
-        return $server->backup_limit;
+        return $server->backup_limit ?? 0;
     }
 
     public static function defaultForm(Schema $schema): Schema
@@ -121,13 +122,13 @@ class BackupResource extends Resource
                 IconColumn::make('is_locked')
                     ->label(trans('server/backup.is_locked'))
                     ->visibleFrom('md')
-                    ->trueIcon('tabler-lock')
-                    ->falseIcon('tabler-lock-open'),
+                    ->trueIcon(TablerIcon::Lock)
+                    ->falseIcon(TablerIcon::LockOpen),
             ])
             ->recordActions([
                 ActionGroup::make([
-                    Action::make('rename')
-                        ->icon('tabler-pencil')
+                    Action::make('exclude_rename')
+                        ->icon(TablerIcon::Pencil)
                         ->authorize(fn () => user()?->can(SubuserPermission::BackupDelete, $server))
                         ->label(trans('server/backup.actions.rename.title'))
                         ->schema([
@@ -156,26 +157,26 @@ class BackupResource extends Resource
                                 ->send();
                         })
                         ->visible(fn (Backup $backup) => $backup->status === BackupStatus::Successful),
-                    Action::make('lock')
+                    Action::make('exclude_lock')
                         ->iconSize(IconSize::Large)
-                        ->icon(fn (Backup $backup) => !$backup->is_locked ? 'tabler-lock' : 'tabler-lock-open')
+                        ->icon(fn (Backup $backup) => !$backup->is_locked ? TablerIcon::Lock : TablerIcon::LockOpen)
                         ->authorize(fn () => user()?->can(SubuserPermission::BackupDelete, $server))
                         ->label(fn (Backup $backup) => !$backup->is_locked ? trans('server/backup.actions.lock.lock') : trans('server/backup.actions.lock.unlock'))
                         ->action(fn (BackupController $backupController, Backup $backup, Request $request) => $backupController->toggleLock($request, $server, $backup))
                         ->visible(fn (Backup $backup) => $backup->status === BackupStatus::Successful),
-                    Action::make('download')
+                    Action::make('exclude_download')
                         ->label(trans('server/backup.actions.download'))
                         ->iconSize(IconSize::Large)
                         ->color('primary')
-                        ->icon('tabler-download')
+                        ->icon(TablerIcon::Download)
                         ->authorize(fn () => user()?->can(SubuserPermission::BackupDownload, $server))
                         ->url(fn (DownloadLinkService $downloadLinkService, Backup $backup, Request $request) => $downloadLinkService->handle($backup, $request->user()), true)
                         ->visible(fn (Backup $backup) => $backup->status === BackupStatus::Successful),
-                    Action::make('restore')
+                    Action::make('exclude_restore')
                         ->label(trans('server/backup.actions.restore.title'))
                         ->iconSize(IconSize::Large)
                         ->color('success')
-                        ->icon('tabler-folder-up')
+                        ->icon(TablerIcon::FolderUp)
                         ->authorize(fn () => user()?->can(SubuserPermission::BackupRestore, $server))
                         ->schema([
                             TextEntry::make('stop_info')
@@ -224,7 +225,12 @@ class BackupResource extends Resource
                                 ->send();
                         })
                         ->visible(fn (Backup $backup) => $backup->status === BackupStatus::Successful),
-                    DeleteAction::make('delete')
+                    Action::make('exclude_delete')
+                        ->icon(TablerIcon::Trash)
+                        ->color('danger')
+                        ->requiresConfirmation()
+                        ->authorize(fn () => user()?->can(SubuserPermission::BackupDelete, $server))
+                        ->label(trans('filament-actions::delete.single.label'))
                         ->iconSize(IconSize::Large)
                         ->disabled(fn (Backup $backup) => $backup->is_locked && $backup->status !== BackupStatus::Failed)
                         ->modalDescription(fn (Backup $backup) => trans('server/backup.actions.delete.description', ['backup' => $backup->name]))
@@ -259,12 +265,12 @@ class BackupResource extends Resource
             ->toolbarActions([
                 CreateAction::make()
                     ->authorize(fn () => user()?->can(SubuserPermission::BackupCreate, $server))
-                    ->icon('tabler-file-zip')
+                    ->icon(TablerIcon::FileZip)
                     ->tooltip(fn () => $server->backups()->count() >= $server->backup_limit ? trans('server/backup.actions.create.limit') : trans('server/backup.actions.create.title'))
                     ->disabled(fn () => $server->backups()->count() >= $server->backup_limit)
                     ->color(fn () => $server->backups()->count() >= $server->backup_limit ? 'danger' : 'primary')
                     ->createAnother(false)
-                    ->hiddenLabel()->iconButton()->iconSize(IconSize::ExtraLarge)
+                    ->hiddenLabel()
                     ->successNotificationTitle(null)
                     ->action(function (InitiateBackupService $initiateBackupService, $data) use ($server) {
                         $action = $initiateBackupService->setIgnoredFiles(explode(PHP_EOL, $data['ignored'] ?? ''));
